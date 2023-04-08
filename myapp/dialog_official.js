@@ -1,9 +1,27 @@
+
+ // TODO(developer): UPDATE these variables before running the sample.
+
+// projectId: ID of the GCP project where Dialogflow agent is deployed
+ const projectId = 't-1-1-y9pi';
+// sessionId: String representing a random number or hashed user identifier
+ const sessionId = '123456';
+// queries: A set of sequential queries to be send to Dialogflow agent for Intent Detection
+ const queries = [
+   '0912345678'
+    // Tell the bot when the meeting is taking place
+     // Rooms are defined on the Dialogflow agent, default options are A, B, or C
+ ]
+// languageCode: Indicates the language Dialogflow agent should use to detect intents
+ const languageCode = 'zh-TW';
+
+// Imports the Dialogflow library
 const dialogflow = require('@google-cloud/dialogflow');
-require('dotenv').config();
-const express = require('express');
+
+// Instantiates a session client
+
 const { SessionsClient } = require('@google-cloud/dialogflow');
-const project_id = 't-1-1-y9pi';
-const languageCode = 'zh-TW';
+const { express } = require('actions-on-google/dist/framework/express');
+
 // TODO: Set the `credentials` value to your GCP service account JSON key object
 const credentials = {
   type: 'service_account',
@@ -19,69 +37,68 @@ const credentials = {
 };
 
 // Instantiates a session client
-const sessionClient = new dialogflow.SessionsClient({ credentials });
+const sessionClient = new SessionsClient({ credentials });
 
 // The rest of your code here
 
-const detectIntent = async (languageCode, queryText, sessionId) => {
 
-    let sessionPath = sessionClient.projectAgentSessionPath(project_id, sessionId);
+async function detectIntent(
+  projectId,
+  sessionId,
+  query,
+  contexts,
+  languageCode
+) {
+  // The path to identify the agent that owns the created intent.
+  const sessionPath = sessionClient.projectAgentSessionPath(
+    projectId,
+    sessionId
+  );
 
-    // The text query request.
-    let request = {
-        session: sessionPath,
-        queryInput: {
-            text: {
-                // The query to send to the dialogflow agent
-                text: queryText,
-                // The language used by the client (en-US)
-                languageCode: languageCode,
-            },
-        },
+  // The text query request.
+  const request = {
+    session: sessionPath,
+    queryInput: {
+      text: {
+        text: query,
+        languageCode: languageCode,
+      },
+    },
+  };
+
+  if (contexts && contexts.length > 0) {
+    request.queryParams = {
+      contexts: contexts,
     };
+  }
 
-    // Send request and log result
-    const responses = await sessionClient.detectIntent(request);
-    console.log(responses);
-    const result = responses[0].queryResult;
-    console.log(result);
-
-    return {
-        response: result.fulfillmentText
-    };
+  const responses = await sessionClient.detectIntent(request);
+  return responses[0];
 }
 
-detectIntent('zh-TW','你好','123');
-
-// Start the webapp
-const webApp = express();
-
-// Webapp settings
-webApp.use(express.urlencoded({
-    extended: true
-}));
-webApp.use(express.json());
-
-// Server Port
-const PORT = process.env.PORT || 5000;
-
-// Home route
-webApp.get('/', (req, res) => {
-    res.send(`Hello World.!`);
-});
-
-// Dialogflow route
-webApp.post('/dialogflow', async (req, res) => {
-
-    let languageCode = req.body.languageCode;
-    let queryText = req.body.queryText;
-    let sessionId = req.body.sessionId;
-    let responseData = await detectIntent(languageCode, queryText, sessionId);
-
-    res.send(responseData);
-});
-
-// Start the server
-webApp.listen(PORT, () => {
-    console.log(`Server is up and running at ${PORT}`);
-});
+async function executeQueries(projectId, sessionId, queries, languageCode) {
+  // Keeping the context across queries let's us simulate an ongoing conversation with the bot
+  let context;
+  let intentResponse;
+  for (const query of queries) {
+    try {
+      console.log(`Sending Query: ${query}`);
+      intentResponse = await detectIntent(
+        projectId,
+        sessionId,
+        query,
+        context,
+        languageCode
+      );
+      console.log('Detected intent');
+      console.log(
+        `Fulfillment Text: ${intentResponse.queryResult.fulfillmentText}`
+      );
+      // Use the context from this response for next queries
+      context = intentResponse.queryResult.outputContexts;
+    } catch (error) {
+      console.log(error);
+    }
+  }
+}
+executeQueries(projectId, sessionId, queries, languageCode);

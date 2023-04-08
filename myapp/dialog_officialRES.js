@@ -1,21 +1,9 @@
-// TODO(developer): UPDATE these variables before running the sample.
-
-// projectId: ID of the GCP project where Dialogflow agent is deployed
-const projectId = 't-1-1-y9pi';
-// sessionId: String representing a random number or hashed user identifier
- const sessionId = '123456';
-// queries: A set of sequential queries to be send to Dialogflow agent for Intent Detection
-
-// languageCode: Indicates the language Dialogflow agent should use to detect intents
-const languageCode = 'zh-TW';
-
-// Imports the Dialogflow library
 const dialogflow = require('@google-cloud/dialogflow');
-
-// Instantiates a session client
-
+require('dotenv').config();
+const express = require('express');
 const { SessionsClient } = require('@google-cloud/dialogflow');
-
+const project_id = 't-1-1-y9pi';
+const languageCode = 'zh-TW';
 // TODO: Set the `credentials` value to your GCP service account JSON key object
 const credentials = {
   type: 'service_account',
@@ -31,60 +19,69 @@ const credentials = {
 };
 
 // Instantiates a session client
-const sessionClient = new SessionsClient({ credentials });
+const sessionClient = new dialogflow.SessionsClient({ credentials });
 
 // The rest of your code here
 
-async function detectIntent(
-  sessionId,
-  queryText,
-  languageCode
-) {
-  // The path to identify the agent that owns the created intent.
-  const sessionPath = sessionClient.projectAgentSessionPath(
-    projectId,
-    sessionId
-  );
+const detectIntent = async (languageCode, queryText, sessionId) => {
 
-  // The text query request.
-  const request = {
-    session: sessionPath,
-    queryInput: {
-      text: {
-        text: queryText,
-        languageCode: languageCode,
-      },
-    },
-  };
-  const responses = await sessionClient.detectIntent(request);
-  return responses[0];
+    let sessionPath = sessionClient.projectAgentSessionPath(project_id, sessionId);
+
+    // The text query request.
+    let request = {
+        session: sessionPath,
+        queryInput: {
+            text: {
+                // The query to send to the dialogflow agent
+                text: queryText,
+                // The language used by the client (en-US)
+                languageCode: languageCode,
+            },
+        },
+    };
+
+    // Send request and log result
+    const responses = await sessionClient.detectIntent(request);
+    console.log(responses);
+    const result = responses[0].queryResult;
+    console.log(result);
+
+    return {
+        response: result.fulfillmentText
+    };
 }
 
-//detectIntent('123456','你好','zh-TW');
-var express = require('express')
-const webapp = express();
-/*
-webapp.use(express.urlencoded({ 
-  extended : true
+detectIntent('zh-TW','你好','123');
+
+// Start the webapp
+const webApp = express();
+
+// Webapp settings
+webApp.use(express.urlencoded({
+    extended: true
 }));
-webapp.use(express.json());
-*/
-const port = process.env.PORT || 5000;
+webApp.use(express.json());
 
-webapp.get('/', (req, res)=>{
-  res.send('Hello world');
+// Server Port
+const PORT = process.env.PORT || 5000;
+
+// Home route
+webApp.get('/', (req, res) => {
+    res.send(`Hello World.!`);
 });
 
-webapp.post('/dialogflow', async (req, res)=>{
-  let languageCode = req.body.languageCode;
-  let queryText = req.body.queryText;
-  let sessionId = req.body.session;
+// Dialogflow route
+webApp.post('/dialogflow', async (req, res) => {
 
-  let responseData = await detectIntent(queryText,sessionId,languageCode);
+    let languageCode = req.body.languageCode;
+    let queryText = req.body.queryText;
+    let sessionId = req.body.sessionId;
+    let responseData = await detectIntent(languageCode, queryText, sessionId);
 
-  res.send(responseData);
+    res.send(responseData);
 });
 
-webapp.listen(port, ()=>{
-  console.log('server is up and running ')
-})
+// Start the server
+webApp.listen(PORT, () => {
+    console.log(`Server is up and running at ${PORT}`);
+});
