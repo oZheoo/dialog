@@ -11,3 +11,4 @@ const completion = openai.createChatCompletion({
 });
 
 console.log(completion.data);
+
